@@ -59,19 +59,33 @@
     .val-spent { color: var(--red); }
     .val-remain { color: var(--green); }
     .val-over { color: var(--red); }
-    .info-card { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 1rem; border: 0.5px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 12px; }
-    .info-card.good { background: var(--green-bg); border-color: transparent; }
-    .info-card.bad { background: var(--red-bg); border-color: transparent; }
-    .info-card.warn { background: var(--orange-bg); border-color: transparent; }
-    .info-card-icon { font-size: 22px; line-height: 1; flex-shrink: 0; width: 28px; text-align: center; }
-    .info-card-body { flex: 1; }
-    .info-card-top { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
-    .info-card-top.good { color: var(--green); }
-    .info-card-top.bad { color: var(--red); }
-    .info-card-top.warn { color: var(--orange); }
-    .info-card-top.neutral { color: var(--text-sub); }
-    .info-card-main { font-size: 15px; font-weight: 600; color: var(--text); }
-    .info-card-sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .status-card { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 0.75rem; border: 0.5px solid transparent; display: flex; align-items: center; gap: 12px; }
+    .status-card.good { background: var(--green-bg); }
+    .status-card.bad { background: var(--red-bg); }
+    .status-card.warn { background: var(--orange-bg); }
+    .status-card.neutral { background: var(--surface); border-color: var(--border); }
+    .status-card-icon { font-size: 20px; line-height: 1; flex-shrink: 0; width: 24px; text-align: center; }
+    .status-card-body { flex: 1; }
+    .status-card-label { font-size: 11px; font-weight: 400; margin-bottom: 1px; opacity: 0.7; }
+    .status-card-label.good { color: var(--green); }
+    .status-card-label.bad { color: var(--red); }
+    .status-card-label.warn { color: var(--orange); }
+    .status-card-label.neutral { color: var(--text-sub); }
+    .status-card-text { font-size: 15px; font-weight: 600; color: var(--text); }
+    .status-card-sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .reserve-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 1.25rem; }
+    .reserve-card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .reserve-card-title { font-size: 13px; font-weight: 500; color: var(--text-sub); }
+    .reserve-card-amount { font-size: 15px; font-weight: 600; }
+    .reserve-card-amount.ok { color: var(--green); }
+    .reserve-card-amount.low { color: var(--orange); }
+    .reserve-card-amount.empty { color: var(--red); }
+    .bar-track { background: var(--border); border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 8px; }
+    .bar-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+    .bar-fill.ok { background: var(--green); }
+    .bar-fill.low { background: var(--orange); }
+    .bar-fill.empty { background: var(--red); }
+    .bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-hint); }
     hr { border: none; border-top: 0.5px solid var(--border); margin: 1.25rem 0; }
     .section-label { font-size: 13px; font-weight: 500; color: var(--text-sub); margin-bottom: 10px; }
     .input-row { display: flex; gap: 8px; margin-bottom: 1.25rem; }
@@ -99,8 +113,7 @@
     .empty { text-align: center; padding: 2rem; font-size: 14px; color: var(--text-hint); }
     .status { font-size: 12px; color: var(--text-hint); text-align: center; margin-top: 1.5rem; }
     .status.error { color: var(--red); }
-    .loading-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-sub); z-index: 100; transition: opacity 0.3s; }
-    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loading-overlay { display: none; }
   </style>
 </head>
 <body>
@@ -162,12 +175,19 @@
     </div>
   </div>
 
-  <div class="info-card good" id="summaryBox">
-    <div class="info-card-icon" id="summaryIcon">🟢</div>
-    <div class="info-card-body">
-      <div class="info-card-top good" id="summaryToday">오늘 40,000원 남았어요!</div>
-      <div class="info-card-main" id="summaryMain">완벽해요! 예산 그대로 유지</div>
-      <div class="info-card-sub" id="summarySub">내일도 하루 40,000원</div>
+  <div class="status-card good" id="commentCard">
+    <div class="status-card-icon" id="commentIcon">🟢</div>
+    <div class="status-card-body">
+      <div class="status-card-label good" id="commentLabel">오늘 현황</div>
+      <div class="status-card-text" id="commentText">오늘 40,000원 남았어요!</div>
+    </div>
+  </div>
+  <div class="status-card neutral" id="summaryBox">
+    <div class="status-card-icon" id="summaryIcon">⚪</div>
+    <div class="status-card-body">
+      <div class="status-card-label neutral" id="summaryToday">월 예산 영향</div>
+      <div class="status-card-text" id="summaryMain">완벽해요! 예산 그대로 유지</div>
+      <div class="status-card-sub" id="summarySub">내일도 하루 40,000원</div>
     </div>
   </div>
   <hr />
@@ -185,6 +205,19 @@
     <div class="empty">아직 지출 내역이 없어요</div>
   </div>
   <hr />
+  <div class="reserve-card">
+    <div class="reserve-card-header">
+      <span class="reserve-card-title">예비비 잔액</span>
+      <span class="reserve-card-amount ok" id="reserveRemainAmt">-</span>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill ok" id="reserveBar" style="width:100%"></div>
+    </div>
+    <div class="bar-labels">
+      <span>0원</span>
+      <span id="reserveTotalAmt">-</span>
+    </div>
+  </div>
   <div class="section-label">예비비 지출 추가</div>
   <div class="input-row">
     <input type="text" id="reserveName" placeholder="내용 (예: 병원비)" />
@@ -345,51 +378,89 @@ function updateUI() {
 function updateSummary(remain, total) {
   const box = document.getElementById('summaryBox');
   const icon = document.getElementById('summaryIcon');
-  const todayEl = document.getElementById('summaryToday');
+  const todayLabel = document.getElementById('summaryToday');
   const main = document.getElementById('summaryMain');
   const sub = document.getElementById('summarySub');
+  const commentCard = document.getElementById('commentCard');
+  const commentIcon = document.getElementById('commentIcon');
+  const commentLabel = document.getElementById('commentLabel');
+  const commentText = document.getElementById('commentText');
 
   const start = new Date('2026-05-30');
   const end = new Date('2026-06-30');
   const today = new Date(TODAY);
   const passedDays = Math.round((today - start) / 86400000) + 1;
   const remainDays = Math.round((end - today) / 86400000);
-
   const usedBudget = settings.daily * passedDays - remain;
   const remainMonthly = settings.monthly - usedBudget;
   const newDaily = remainDays > 0 ? Math.round(remainMonthly / remainDays) : 0;
   const diff = newDaily - settings.daily;
 
+  // 첫번째 박스: 오늘 현황
   if (total === 0) {
-    box.className = 'info-card';
-    icon.textContent = '💰';
-    todayEl.className = 'info-card-top neutral';
-    todayEl.textContent = '오늘 아직 지출이 없어요';
-    main.textContent = '하루 예산 ' + fmt(settings.daily) + ' 남았어요';
-    sub.textContent = '지출을 입력해주세요';
-  } else if (remain === 0) {
-    box.className = 'info-card';
-    icon.textContent = '⚪';
-    todayEl.className = 'info-card-top neutral';
-    todayEl.textContent = '딱 맞게 썼어요 👏';
-    main.textContent = '예산 그대로 유지!';
-    sub.textContent = '내일도 하루 ' + settings.daily.toLocaleString('ko-KR') + '원';
-  } else if (remain > 0) {
-    const mood = remain >= settings.daily * 0.5 ? '😊' : '👍';
-    box.className = 'info-card good';
-    icon.textContent = '🟢';
-    todayEl.className = 'info-card-top good';
-    todayEl.textContent = '오늘 ' + fmt(remain) + ' 남았어요! ' + mood;
-    main.textContent = diff >= 0 ? '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원까지 써도 돼요' : '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원';
-    sub.textContent = '기존 대비 ' + (diff >= 0 ? '+' : '') + diff.toLocaleString('ko-KR') + '원';
+    commentCard.className = 'status-card neutral';
+    commentIcon.textContent = '💰';
+    commentLabel.className = 'status-card-label neutral';
+    commentLabel.textContent = '오늘 현황';
+    commentText.textContent = '아직 지출이 없어요. 하루 예산 ' + fmt(settings.daily);
+  } else if (remain >= 0) {
+    commentCard.className = 'status-card good';
+    commentIcon.textContent = '🟢';
+    commentLabel.className = 'status-card-label good';
+    commentLabel.textContent = '오늘 현황';
+    commentText.textContent = '오늘 ' + fmt(remain) + ' 남았어요!';
   } else {
-    box.className = 'info-card bad';
-    icon.textContent = '🔴';
-    todayEl.className = 'info-card-top bad';
-    todayEl.textContent = '오늘 ' + fmt(Math.abs(remain)) + ' 초과했어요 😅';
-    main.textContent = '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원으로 줄여야 해요';
-    sub.textContent = '기존 대비 ' + diff.toLocaleString('ko-KR') + '원';
+    commentCard.className = 'status-card bad';
+    commentIcon.textContent = '🔴';
+    commentLabel.className = 'status-card-label bad';
+    commentLabel.textContent = '오늘 현황';
+    commentText.textContent = '오늘 ' + fmt(Math.abs(remain)) + ' 초과했어요 😅';
   }
+
+  // 두번째 박스: 월 예산 영향
+  todayLabel.textContent = '월 예산 영향';
+  if (diff > 0) {
+    box.className = 'status-card good';
+    icon.textContent = '📈';
+    todayLabel.className = 'status-card-label good';
+    main.textContent = '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원까지 OK';
+    sub.textContent = '';
+  } else if (diff < 0) {
+    box.className = 'status-card bad';
+    icon.textContent = '📉';
+    todayLabel.className = 'status-card-label bad';
+    main.textContent = '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원으로 줄여야 해요';
+    sub.textContent = '';
+  } else {
+    box.className = 'status-card neutral';
+    icon.textContent = '⚪';
+    todayLabel.className = 'status-card-label neutral';
+    main.textContent = '예산 그대로 유지!';
+    sub.textContent = '';
+  }
+
+  updateReserveBar();
+}
+
+function updateReserveBar() {
+  const used = reserveExpenses.reduce((s, e) => s + e.amount, 0);
+  const total = settings.reserve;
+  const remain = total - used;
+  const pct = Math.max(0, Math.min(100, Math.round((remain / total) * 100)));
+
+  const amtEl = document.getElementById('reserveRemainAmt');
+  const barEl = document.getElementById('reserveBar');
+  const totalEl = document.getElementById('reserveTotalAmt');
+
+  if (!amtEl) return;
+
+  totalEl.textContent = total.toLocaleString('ko-KR') + '원';
+  amtEl.textContent = fmt(remain) + ' 남음';
+
+  const state = pct > 50 ? 'ok' : pct > 20 ? 'low' : 'empty';
+  amtEl.className = 'reserve-card-amount ' + state;
+  barEl.className = 'bar-fill ' + state;
+  barEl.style.width = pct + '%';
 }
 
 function renderList() {
@@ -485,6 +556,7 @@ function renderReserveList() {
   list.innerHTML = reserveExpenses.slice().reverse().map(e =>
     '<div class="expense-item"><div class="item-left"><div class="item-dot" style="background:var(--orange)"></div><div><div class="item-name">' + e.name + '</div><div class="item-time">' + e.time + '</div></div></div><div class="item-right"><div class="item-amount">' + fmt(e.amount) + '</div><button class="del-btn" onclick="deleteExpense(' + e.id + ', true)">✕</button></div></div>'
   ).join('');
+  updateReserveBar();
 }
 
 document.getElementById('expenseName').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('expenseAmount').focus(); });
@@ -495,9 +567,6 @@ async function init() {
   updateMetrics();
   updateUI();
   renderReserveList();
-  const overlay = document.getElementById('loadingOverlay');
-  overlay.classList.add('hidden');
-  setTimeout(() => overlay.remove(), 400);
   loadExpenses();
 }
 
