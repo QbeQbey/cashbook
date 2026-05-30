@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>6월 지출 관리</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f7f6f3;
+      --surface: #ffffff;
+      --border: rgba(0,0,0,0.08);
+      --border-md: rgba(0,0,0,0.14);
+      --text: #1a1a18;
+      --text-sub: #6b6b68;
+      --text-hint: #a8a8a4;
+      --green: #1D9E75;
+      --green-bg: #E1F5EE;
+      --red: #E24B4A;
+      --red-bg: #FCEBEB;
+      --orange: #EF9F27;
+      --orange-bg: #FAEEDA;
+      --blue: #378ADD;
+      --blue-bg: #E6F1FB;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a18;
+        --surface: #242422;
+        --border: rgba(255,255,255,0.08);
+        --border-md: rgba(255,255,255,0.14);
+        --text: #f0efe9;
+        --text-sub: #9a9a96;
+        --text-hint: #5a5a57;
+        --green-bg: #04342C;
+        --red-bg: #501313;
+        --orange-bg: #412402;
+        --blue-bg: #042C53;
+      }
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 480px; margin: 0 auto; }
+
+    /* Header */
+    .header { margin-bottom: 1.5rem; }
+    .header h1 { font-size: 22px; font-weight: 600; }
+    .header p { font-size: 13px; color: var(--text-sub); margin-top: 3px; }
+
+    /* Metric grid */
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1.25rem; }
+    .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+    .metric-label { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
+    .metric-value { font-size: 15px; font-weight: 600; }
+
+    /* Donut card */
+    .donut-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .donut-wrap { position: relative; width: 100px; height: 100px; flex-shrink: 0; }
+    .donut-wrap canvas { width: 100px; height: 100px; }
+    .donut-center {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .donut-pct { font-size: 18px; font-weight: 600; }
+    .donut-sub { font-size: 10px; color: var(--text-sub); margin-top: 1px; }
+    .donut-info { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .info-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .info-label { font-size: 13px; color: var(--text-sub); }
+    .info-val { font-size: 15px; font-weight: 600; }
+    .val-spent { color: var(--red); }
+    .val-remain { color: var(--green); }
+    .val-over { color: var(--red); }
+
+    /* Comment */
+    .comment {
+      background: var(--green-bg);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--green);
+      text-align: center;
+      margin-bottom: 1.25rem;
+      transition: background 0.3s, color 0.3s;
+    }
+    .comment.warn { background: var(--orange-bg); color: var(--orange); }
+    .comment.danger { background: var(--red-bg); color: var(--red); }
+
+    /* Divider */
+    hr { border: none; border-top: 0.5px solid var(--border); margin: 1.25rem 0; }
+
+    /* Input */
+    .section-label { font-size: 13px; font-weight: 500; color: var(--text-sub); margin-bottom: 10px; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 1.25rem; }
+    input[type="text"], input[type="number"] {
+      background: var(--surface);
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      outline: none;
+    }
+    input[type="text"] { flex: 2; }
+    input[type="number"] { flex: 1; }
+    input::placeholder { color: var(--text-hint); }
+    input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
+    .add-btn {
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 9px 16px;
+      font-size: 14px;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .add-btn:hover { opacity: 0.8; }
+    .add-btn:active { transform: scale(0.97); }
+    .add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Expense list */
+    .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .list-title { font-size: 13px; font-weight: 500; color: var(--text-sub); }
+    .list-total { font-size: 13px; font-weight: 600; }
+    .expense-list { display: flex; flex-direction: column; gap: 6px; }
+    .expense-item {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .item-left { display: flex; align-items: center; gap: 10px; }
+    .item-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
+    .item-name { font-size: 14px; }
+    .item-time { font-size: 11px; color: var(--text-hint); margin-top: 1px; }
+    .item-right { display: flex; align-items: center; gap: 10px; }
+    .item-amount { font-size: 14px; font-weight: 600; }
+    .del-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-hint); font-size: 16px; line-height: 1;
+      padding: 2px 4px; border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .del-btn:hover { color: var(--red); background: var(--red-bg); }
+    .empty { text-align: center; padding: 2rem; font-size: 14px; color: var(--text-hint); }
+
+    /* Status */
+    .status {
+      font-size: 12px;
+      color: var(--text-hint);
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+    .status.error { color: var(--red); }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: var(--text-sub);
+      z-index: 100;
+      transition: opacity 0.3s;
+    }
+    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    /* Setup banner */
+    .setup-banner {
+      background: var(--orange-bg);
+      border: 0.5px solid var(--orange);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+    }
+    .setup-banner strong { font-weight: 600; }
+    .setup-banner code {
+      background: rgba(0,0,0,0.08);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">불러오는 중...</div>
+
+<div class="container">
+
+  <!-- ⚙️ Supabase 설정: 아래 두 값을 본인 것으로 교체하세요 -->
+  <!-- SUPABASE_URL과 SUPABASE_ANON_KEY를 설정하지 않으면 안내 배너가 표시됩니다 -->
+
+  <div id="setupBanner" class="setup-banner" style="display:none;">
+    <strong>⚙️ Supabase 연동 필요</strong><br>
+    이 파일의 상단 스크립트에서 아래 두 값을 교체해주세요.<br><br>
+    <code>SUPABASE_URL</code> — Supabase 프로젝트 URL<br>
+    <code>SUPABASE_ANON_KEY</code> — Supabase anon public 키<br><br>
+    설정 전까지는 브라우저 로컬 저장소로 동작합니다.
+  </div>
+
+  <div class="header">
+    <h1>6월 지출 관리</h1>
+    <p id="todayDate"></p>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">하루 예산</div>
+      <div class="metric-value">4만원</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">월 예산</div>
+      <div class="metric-value">124만원</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">예비비</div>
+      <div class="metric-value">116만원</div>
+    </div>
+  </div>
+
+  <div class="donut-card">
+    <div class="donut-wrap">
+      <canvas id="donutCanvas" width="100" height="100"></canvas>
+      <div class="donut-center">
+        <div class="donut-pct" id="pctText">0%</div>
+        <div class="donut-sub">사용률</div>
+      </div>
+    </div>
+    <div class="donut-info">
+      <div class="info-row">
+        <span class="info-label">오늘 사용</span>
+        <span class="info-val val-spent" id="spentVal">0원</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">하루 예산</span>
+        <span class="info-val">40,000원</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label" id="remainLabel">남은 금액</span>
+        <span class="info-val val-remain" id="remainVal">40,000원</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="comment" id="commentBox">오늘 4만원 남았어요! 잘 지키고 있어요 👍</div>
+
+  <hr />
+
+  <div class="section-label">지출 추가</div>
+  <div class="input-row">
+    <input type="text" id="expenseName" placeholder="내용 (예: 점심식사)" />
+    <input type="number" id="expenseAmount" placeholder="금액" min="0" step="100" />
+    <button class="add-btn" id="addBtn" onclick="addExpense()">추가</button>
+  </div>
+
+  <div class="list-header">
+    <span class="list-title" id="listTitle">오늘 지출 내역</span>
+    <span class="list-total" id="listTotal"></span>
+  </div>
+  <div class="expense-list" id="expenseList">
+    <div class="empty">아직 지출 내역이 없어요</div>
+  </div>
+
+  <div class="status" id="statusMsg"></div>
+
+</div>
+
+<script>
+  // ====================================================
+  // ⚙️ 여기에 Supabase 정보를 입력하세요
+  // Supabase 대시보드 → Project Settings → API에서 확인
+  // ====================================================
+  const SUPABASE_URL = 'https://stbbjqeyjmvwepciqxpp.supabase.co/rest/v1/';
+  const SUPABASE_ANON_KEY = 'sb_publishable_O0rqpT8ByIKycimhfuNiDg_vNDAV_YC';
+  // ====================================================
+
+  const DAILY_BUDGET = 40000;
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const LOCAL_KEY = 'expenses_' + TODAY;
+
+  let supabase = null;
+  let useSupabase = false;
+  let expenses = [];
+
+  // Supabase 초기화
+  function initSupabase() {
+    if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+      document.getElementById('setupBanner').style.display = 'block';
+      return false;
+    }
+    try {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  // 날짜 표시
+  const days = ['일','월','화','수','목','금','토'];
+  const now = new Date();
+  document.getElementById('todayDate').textContent =
+    now.getFullYear() + '년 ' + (now.getMonth()+1) + '월 ' + now.getDate() + '일 (' + days[now.getDay()] + ')';
+
+  // 금액 포맷
+  function fmt(n) {
+    return Math.abs(n).toLocaleString('ko-KR') + '원';
+  }
+
+  // 상태 메시지
+  function setStatus(msg, isError) {
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = 'status' + (isError ? ' error' : '');
+    if (msg && !isError) setTimeout(() => { el.textContent = ''; }, 2000);
+  }
+
+  // 도넛 차트
+  function drawDonut(pct) {
+    const canvas = document.getElementById('donutCanvas');
+    const ctx = canvas.getContext('2d');
+    const cx = 50, cy = 50, r = 38, sw = 9;
+    const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const trackColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+    const fillColor = pct >= 100 ? '#E24B4A' : pct >= 80 ? '#EF9F27' : '#1D9E75';
+
+    ctx.clearRect(0, 0, 100, 100);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    ctx.strokeStyle = trackColor;
+    ctx.lineWidth = sw;
+    ctx.stroke();
+
+    if (pct > 0) {
+      const angle = Math.min(pct / 100, 1) * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + angle);
+      ctx.strokeStyle = fillColor;
+      ctx.lineWidth = sw;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+  }
+
+  // UI 업데이트
+  function updateUI() {
+    const total = expenses.reduce((s, e) => s + e.amount, 0);
+    const pct = Math.round((total / DAILY_BUDGET) * 100);
+    const remain = DAILY_BUDGET - total;
+
+    document.getElementById('pctText').textContent = pct + '%';
+    document.getElementById('spentVal').textContent = fmt(total);
+
+    const remainEl = document.getElementById('remainVal');
+    const remainLabel = document.getElementById('remainLabel');
+    const commentBox = document.getElementById('commentBox');
+
+    if (remain >= 0) {
+      remainLabel.textContent = '남은 금액';
+      remainEl.className = 'info-val val-remain';
+      remainEl.textContent = fmt(remain);
+      if (remain === 0) {
+        commentBox.className = 'comment warn';
+        commentBox.textContent = '오늘 예산을 딱 맞게 썼어요! 👏';
+      } else if (pct >= 80) {
+        commentBox.className = 'comment warn';
+        commentBox.textContent = '오늘 ' + fmt(remain) + ' 남았어요! 조금만 더 아껴요 💪';
+      } else {
+        commentBox.className = 'comment';
+        commentBox.textContent = '오늘 ' + fmt(remain) + ' 남았어요! 잘 지키고 있어요 👍';
+      }
+    } else {
+      remainLabel.textContent = '초과 금액';
+      remainEl.className = 'info-val val-over';
+      remainEl.textContent = fmt(Math.abs(remain));
+      commentBox.className = 'comment danger';
+      commentBox.textContent = '오늘 ' + fmt(Math.abs(remain)) + ' 초과했어요 😅 내일은 줄여봐요!';
+    }
+
+    drawDonut(pct);
+    renderList();
+  }
+
+  // 리스트 렌더링
+  function renderList() {
+    const list = document.getElementById('expenseList');
+    const total = expenses.reduce((s, e) => s + e.amount, 0);
+    document.getElementById('listTitle').textContent = '오늘 지출 내역 (' + expenses.length + '건)';
+    document.getElementById('listTotal').textContent = total > 0 ? fmt(total) : '';
+
+    if (expenses.length === 0) {
+      list.innerHTML = '<div class="empty">아직 지출 내역이 없어요</div>';
+      return;
+    }
+
+    list.innerHTML = expenses.slice().reverse().map(e => `
+      <div class="expense-item">
+        <div class="item-left">
+          <div class="item-dot"></div>
+          <div>
+            <div class="item-name">${e.name}</div>
+            <div class="item-time">${e.time}</div>
+          </div>
+        </div>
+        <div class="item-right">
+          <div class="item-amount">${fmt(e.amount)}</div>
+          <button class="del-btn" onclick="deleteExpense('${e.id}')" aria-label="삭제">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 지출 불러오기
+  async function loadExpenses() {
+    if (useSupabase) {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('date', TODAY)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        setStatus('불러오기 실패: ' + error.message, true);
+        fallbackLoad();
+        return;
+      }
+      expenses = (data || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        amount: r.amount,
+        time: r.time
+      }));
+    } else {
+      fallbackLoad();
+    }
+    updateUI();
+  }
+
+  function fallbackLoad() {
+    try {
+      const raw = localStorage.getItem(LOCAL_KEY);
+      expenses = raw ? JSON.parse(raw) : [];
+    } catch(e) { expenses = []; }
+  }
+
+  function fallbackSave() {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(expenses)); } catch(e) {}
+  }
+
+  // 지출 추가
+  async function addExpense() {
+    const nameEl = document.getElementById('expenseName');
+    const amountEl = document.getElementById('expenseAmount');
+    const btn = document.getElementById('addBtn');
+
+    const name = nameEl.value.trim();
+    const amount = parseInt(amountEl.value, 10);
+    if (!name || isNaN(amount) || amount <= 0) { nameEl.focus(); return; }
+
+    const t = new Date();
+    const time = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+    btn.disabled = true;
+
+    if (useSupabase) {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([{ name, amount, date: TODAY, time }])
+        .select()
+        .single();
+
+      if (error) {
+        setStatus('저장 실패: ' + error.message, true);
+        btn.disabled = false;
+        return;
+      }
+      expenses.push({ id: data.id, name, amount, time });
+      setStatus('저장됨 ✓');
+    } else {
+      const id = Date.now().toString();
+      expenses.push({ id, name, amount, time });
+      fallbackSave();
+    }
+
+    nameEl.value = '';
+    amountEl.value = '';
+    nameEl.focus();
+    btn.disabled = false;
+    updateUI();
+  }
+
+  // 지출 삭제
+  async function deleteExpense(id) {
+    if (useSupabase) {
+      const { error } = await supabase.from('expenses').delete().eq('id', id);
+      if (error) { setStatus('삭제 실패: ' + error.message, true); return; }
+      setStatus('삭제됨 ✓');
+    }
+    expenses = expenses.filter(e => e.id != id);
+    if (!useSupabase) fallbackSave();
+    updateUI();
+  }
+
+  // 키보드
+  document.getElementById('expenseName').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('expenseAmount').focus();
+  });
+  document.getElementById('expenseAmount').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addExpense();
+  });
+
+  // 시작
+  async function init() {
+    useSupabase = initSupabase();
+    await loadExpenses();
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.classList.add('hidden');
+    setTimeout(() => overlay.remove(), 400);
+  }
+
+  init();
+</script>
+</body>
+</html>
