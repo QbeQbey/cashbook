@@ -59,15 +59,25 @@
     .val-spent { color: var(--red); }
     .val-remain { color: var(--green); }
     .val-over { color: var(--red); }
-    .comment { background: var(--green-bg); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 14px; font-weight: 500; color: var(--green); text-align: center; margin-bottom: 1.25rem; }
-    .comment.warn { background: var(--orange-bg); color: var(--orange); }
-    .comment.danger { background: var(--red-bg); color: var(--red); }
+    .info-card { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 1rem; border: 0.5px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 12px; }
+    .info-card.good { background: var(--green-bg); border-color: transparent; }
+    .info-card.bad { background: var(--red-bg); border-color: transparent; }
+    .info-card.warn { background: var(--orange-bg); border-color: transparent; }
+    .info-card-icon { font-size: 22px; line-height: 1; flex-shrink: 0; width: 28px; text-align: center; }
+    .info-card-body { flex: 1; }
+    .info-card-top { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+    .info-card-top.good { color: var(--green); }
+    .info-card-top.bad { color: var(--red); }
+    .info-card-top.warn { color: var(--orange); }
+    .info-card-top.neutral { color: var(--text-sub); }
+    .info-card-main { font-size: 15px; font-weight: 600; color: var(--text); }
+    .info-card-sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
     hr { border: none; border-top: 0.5px solid var(--border); margin: 1.25rem 0; }
     .section-label { font-size: 13px; font-weight: 500; color: var(--text-sub); margin-bottom: 10px; }
-    .input-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.25rem; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 1.25rem; }
     input[type="text"], input[type="number"] { background: var(--surface); border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 14px; font-family: inherit; color: var(--text); outline: none; }
-   input[type="text"] { flex: 2; min-width: 120px; }
-   input[type="number"] { flex: 1; min-width: 80px; }
+    input[type="text"] { flex: 2; }
+    input[type="number"] { flex: 1; }
     input::placeholder { color: var(--text-hint); }
     input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
     .add-btn { background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); padding: 9px 16px; font-size: 14px; font-family: inherit; font-weight: 500; cursor: pointer; white-space: nowrap; }
@@ -152,7 +162,14 @@
     </div>
   </div>
 
-  <div class="comment" id="commentBox">예산을 설정해주세요</div>
+  <div class="info-card good" id="summaryBox">
+    <div class="info-card-icon" id="summaryIcon">🟢</div>
+    <div class="info-card-body">
+      <div class="info-card-top good" id="summaryToday">오늘 40,000원 남았어요!</div>
+      <div class="info-card-main" id="summaryMain">완벽해요! 예산 그대로 유지</div>
+      <div class="info-card-sub" id="summarySub">내일도 하루 40,000원</div>
+    </div>
+  </div>
   <hr />
   <div class="section-label">지출 추가</div>
   <div class="input-row">
@@ -197,9 +214,9 @@ const HEADERS = {
   'Prefer': 'return=representation'
 };
 
-async function sbSelect(date, type) {
+async function sbSelect(date, type, signal) {
   const url = SB_URL + '/rest/v1/expenses?date=eq.' + date + '&type=eq.' + type + '&order=created_at.asc';
-  const res = await fetch(url, { headers: HEADERS });
+  const res = await fetch(url, { headers: HEADERS, signal });
   return res.json();
 }
 async function sbInsert(row) {
@@ -321,7 +338,58 @@ function updateUI() {
     commentBox.textContent = '오늘 ' + fmt(Math.abs(remain)) + ' 초과했어요 😅 내일은 줄여봐요!';
   }
   drawDonut(pct);
+  updateSummary(remain, total);
   renderList();
+}
+
+function updateSummary(remain, total) {
+  const box = document.getElementById('summaryBox');
+  const icon = document.getElementById('summaryIcon');
+  const todayEl = document.getElementById('summaryToday');
+  const main = document.getElementById('summaryMain');
+  const sub = document.getElementById('summarySub');
+
+  const start = new Date('2026-05-30');
+  const end = new Date('2026-06-30');
+  const today = new Date(TODAY);
+  const passedDays = Math.round((today - start) / 86400000) + 1;
+  const remainDays = Math.round((end - today) / 86400000);
+
+  const usedBudget = settings.daily * passedDays - remain;
+  const remainMonthly = settings.monthly - usedBudget;
+  const newDaily = remainDays > 0 ? Math.round(remainMonthly / remainDays) : 0;
+  const diff = newDaily - settings.daily;
+
+  if (total === 0) {
+    box.className = 'info-card';
+    icon.textContent = '💰';
+    todayEl.className = 'info-card-top neutral';
+    todayEl.textContent = '오늘 아직 지출이 없어요';
+    main.textContent = '하루 예산 ' + fmt(settings.daily) + ' 남았어요';
+    sub.textContent = '지출을 입력해주세요';
+  } else if (remain === 0) {
+    box.className = 'info-card';
+    icon.textContent = '⚪';
+    todayEl.className = 'info-card-top neutral';
+    todayEl.textContent = '딱 맞게 썼어요 👏';
+    main.textContent = '예산 그대로 유지!';
+    sub.textContent = '내일도 하루 ' + settings.daily.toLocaleString('ko-KR') + '원';
+  } else if (remain > 0) {
+    const mood = remain >= settings.daily * 0.5 ? '😊' : '👍';
+    box.className = 'info-card good';
+    icon.textContent = '🟢';
+    todayEl.className = 'info-card-top good';
+    todayEl.textContent = '오늘 ' + fmt(remain) + ' 남았어요! ' + mood;
+    main.textContent = diff >= 0 ? '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원까지 써도 돼요' : '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원';
+    sub.textContent = '기존 대비 ' + (diff >= 0 ? '+' : '') + diff.toLocaleString('ko-KR') + '원';
+  } else {
+    box.className = 'info-card bad';
+    icon.textContent = '🔴';
+    todayEl.className = 'info-card-top bad';
+    todayEl.textContent = '오늘 ' + fmt(Math.abs(remain)) + ' 초과했어요 😅';
+    main.textContent = '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원으로 줄여야 해요';
+    sub.textContent = '기존 대비 ' + diff.toLocaleString('ko-KR') + '원';
+  }
 }
 
 function renderList() {
@@ -337,7 +405,13 @@ function renderList() {
 
 async function loadExpenses() {
   try {
-    const [d1, d2] = await Promise.all([sbSelect(TODAY, 'daily'), sbSelect(TODAY, 'reserve')]);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const [d1, d2] = await Promise.all([
+      sbSelect(TODAY, 'daily', controller.signal),
+      sbSelect(TODAY, 'reserve', controller.signal)
+    ]);
+    clearTimeout(timeout);
     if (Array.isArray(d1)) expenses = d1.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
     if (Array.isArray(d2)) reserveExpenses = d2.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
   } catch(e) {
@@ -419,10 +493,12 @@ document.getElementById('expenseAmount').addEventListener('keydown', e => { if (
 async function init() {
   loadSettings();
   updateMetrics();
-  await loadExpenses();
+  updateUI();
+  renderReserveList();
   const overlay = document.getElementById('loadingOverlay');
   overlay.classList.add('hidden');
   setTimeout(() => overlay.remove(), 400);
+  loadExpenses();
 }
 
 init();
