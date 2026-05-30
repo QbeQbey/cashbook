@@ -66,7 +66,7 @@
     .status-card.neutral { background: var(--surface); border-color: var(--border); }
     .status-card-icon { font-size: 20px; line-height: 1; flex-shrink: 0; width: 24px; text-align: center; }
     .status-card-body { flex: 1; }
-    .status-card-label { font-size: 11px; font-weight: 400; margin-bottom: 1px; opacity: 0.7; }
+    .status-card-label { font-size: 12px; font-weight: 500; margin-bottom: 2px; }
     .status-card-label.good { color: var(--green); }
     .status-card-label.bad { color: var(--red); }
     .status-card-label.warn { color: var(--orange); }
@@ -355,20 +355,14 @@ function updateUI() {
   document.getElementById('pctText').textContent = pct + '%';
   document.getElementById('spentVal').textContent = fmt(total);
   const remainEl = document.getElementById('remainVal');
-  const commentBox = document.getElementById('commentBox');
   if (remain >= 0) {
     document.getElementById('remainLabel').textContent = '남은 금액';
     remainEl.className = 'info-val val-remain';
     remainEl.textContent = fmt(remain);
-    if (remain === 0) { commentBox.className = 'comment warn'; commentBox.textContent = '오늘 예산을 딱 맞게 썼어요! 👏'; }
-    else if (pct >= 80) { commentBox.className = 'comment warn'; commentBox.textContent = '오늘 ' + fmt(remain) + ' 남았어요! 조금만 더 아껴요 💪'; }
-    else { commentBox.className = 'comment'; commentBox.textContent = '오늘 ' + fmt(remain) + ' 남았어요! 잘 지키고 있어요 👍'; }
   } else {
     document.getElementById('remainLabel').textContent = '초과 금액';
     remainEl.className = 'info-val val-over';
     remainEl.textContent = fmt(Math.abs(remain));
-    commentBox.className = 'comment danger';
-    commentBox.textContent = '오늘 ' + fmt(Math.abs(remain)) + ' 초과했어요 😅 내일은 줄여봐요!';
   }
   drawDonut(pct);
   updateSummary(remain, total);
@@ -424,19 +418,19 @@ function updateSummary(remain, total) {
     icon.textContent = '📈';
     todayLabel.className = 'status-card-label good';
     main.textContent = '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원까지 OK';
-    sub.textContent = '';
+    sub.textContent = '기존 대비 +' + diff.toLocaleString('ko-KR') + '원 여유 생겼어요';
   } else if (diff < 0) {
     box.className = 'status-card bad';
     icon.textContent = '📉';
     todayLabel.className = 'status-card-label bad';
     main.textContent = '내일부터 하루 ' + newDaily.toLocaleString('ko-KR') + '원으로 줄여야 해요';
-    sub.textContent = '';
+    sub.textContent = '기존 대비 ' + diff.toLocaleString('ko-KR') + '원 줄었어요';
   } else {
     box.className = 'status-card neutral';
     icon.textContent = '⚪';
     todayLabel.className = 'status-card-label neutral';
     main.textContent = '예산 그대로 유지!';
-    sub.textContent = '';
+    sub.textContent = '내일도 하루 ' + settings.daily.toLocaleString('ko-KR') + '원';
   }
 
   updateReserveBar();
