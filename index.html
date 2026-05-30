@@ -42,7 +42,7 @@
     .settings-field.full { grid-column: 1 / -1; }
     .save-btn { width: 100%; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); padding: 10px; font-size: 14px; font-family: inherit; font-weight: 500; cursor: pointer; }
     .save-btn:hover { opacity: 0.8; }
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1.25rem; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 0.75rem; }
     .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
     .metric-label { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
     .metric-value { font-size: 15px; font-weight: 600; }
@@ -380,13 +380,13 @@ function updateSummary(remain, total) {
   const commentLabel = document.getElementById('commentLabel');
   const commentText = document.getElementById('commentText');
 
-  const start = new Date('2026-05-30');
   const end = new Date('2026-06-30');
   const today = new Date(TODAY);
-  const passedDays = Math.round((today - start) / 86400000) + 1;
   const remainDays = Math.round((end - today) / 86400000);
-  const usedBudget = settings.daily * passedDays - remain;
-  const remainMonthly = settings.monthly - usedBudget;
+  // 오늘 절약/초과분 = 하루예산 - 오늘 실제 사용액
+  const savedToday = settings.daily - total;
+  // 내일부터 남은 예산 = 남은 일수 × 하루예산 + 오늘 절약분
+  const remainMonthly = remainDays * settings.daily + savedToday;
   const newDaily = remainDays > 0 ? Math.round(remainMonthly / remainDays) : 0;
   const diff = newDaily - settings.daily;
 
