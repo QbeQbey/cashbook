@@ -329,7 +329,7 @@ function updateMetrics() {
 function updateMetricRemain() {
   const remainMonthly = settings.monthly - monthlyTotal;
   const remainReserve = settings.reserve - monthlyReserveTotal;
-  const toMan = n => (n / 10000).toLocaleString('ko-KR');
+  const toMan = n => Math.round(n / 10000).toLocaleString('ko-KR');
 
   const mEl = document.getElementById('m-monthly');
   const rEl = document.getElementById('m-reserve');
