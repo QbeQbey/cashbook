@@ -251,6 +251,12 @@ async function sbSelect(date, type, signal) {
   const res = await fetch(url, { headers: HEADERS, signal });
   return res.json();
 }
+async function sbSelectMonth(yearMonth, type) {
+  // yearMonth: '2026-06' 형태
+  const url = SB_URL + '/rest/v1/expenses?date=like.' + yearMonth + '*&type=eq.' + type + '&order=created_at.asc';
+  const res = await fetch(url, { headers: HEADERS });
+  return res.json();
+}
 async function sbInsert(row) {
   const res = await fetch(SB_URL + '/rest/v1/expenses', { method: 'POST', headers: HEADERS, body: JSON.stringify(row) });
   const data = await res.json();
@@ -261,8 +267,11 @@ async function sbDelete(id) {
 }
 
 const TODAY = new Date().toISOString().slice(0, 10);
+const THIS_MONTH = TODAY.slice(0, 7); // '2026-06'
 let expenses = [];
 let reserveExpenses = [];
+let monthlyTotal = 0;      // 이번달 일반 지출 누계
+let monthlyReserveTotal = 0; // 이번달 예비비 누계
 
 const DEFAULT_SETTINGS = { salary: 4400000, fixed: 2000000, monthly: 1240000, daily: 40000, reserve: 1160000 };
 let settings = { ...DEFAULT_SETTINGS };
@@ -382,10 +391,8 @@ function updateSummary(remain, total) {
   const end = new Date('2026-06-30');
   const today = new Date(TODAY);
   const remainDays = Math.round((end - today) / 86400000);
-  // 오늘 절약/초과분 = 하루예산 - 오늘 실제 사용액
-  const savedToday = settings.daily - total;
-  // 내일부터 남은 예산 = 남은 일수 × 하루예산 + 오늘 절약분
-  const remainMonthly = remainDays * settings.daily + savedToday;
+  // 남은 월예산 = 전체 월예산 - 이번달 누적 지출
+  const remainMonthly = settings.monthly - monthlyTotal;
   const newDaily = remainDays > 0 ? Math.round(remainMonthly / remainDays) : 0;
   const diff = newDaily - settings.daily;
 
@@ -436,7 +443,7 @@ function updateSummary(remain, total) {
 }
 
 function updateReserveBar() {
-  const used = reserveExpenses.reduce((s, e) => s + e.amount, 0);
+  const used = monthlyReserveTotal;
   const total = settings.reserve;
   const remain = total - used;
   const pct = Math.max(0, Math.min(100, Math.round((remain / total) * 100)));
@@ -471,13 +478,17 @@ async function loadExpenses() {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const [d1, d2] = await Promise.all([
+    const [d1, d2, m1, m2] = await Promise.all([
       sbSelect(TODAY, 'daily', controller.signal),
-      sbSelect(TODAY, 'reserve', controller.signal)
+      sbSelect(TODAY, 'reserve', controller.signal),
+      sbSelectMonth(THIS_MONTH, 'daily'),
+      sbSelectMonth(THIS_MONTH, 'reserve')
     ]);
     clearTimeout(timeout);
     if (Array.isArray(d1)) expenses = d1.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
     if (Array.isArray(d2)) reserveExpenses = d2.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
+    if (Array.isArray(m1)) monthlyTotal = m1.reduce((s, r) => s + r.amount, 0);
+    if (Array.isArray(m2)) monthlyReserveTotal = m2.reduce((s, r) => s + r.amount, 0);
   } catch(e) {
     setStatus('불러오기 실패: ' + e.message, true);
   }
@@ -498,6 +509,7 @@ async function addExpense() {
   try {
     const row = await sbInsert({ name, amount, date: TODAY, time, type: 'daily' });
     expenses.push({ id: row.id, name, amount, time });
+    monthlyTotal += amount;
     nameEl.value = ''; amountEl.value = ''; nameEl.focus();
     setStatus('저장됨 ✓');
     updateUI();
@@ -510,8 +522,17 @@ async function addExpense() {
 async function deleteExpense(id, isReserve) {
   try {
     await sbDelete(id);
-    if (isReserve) { reserveExpenses = reserveExpenses.filter(e => e.id !== id); renderReserveList(); }
-    else { expenses = expenses.filter(e => e.id !== id); updateUI(); }
+    if (isReserve) {
+      const e = reserveExpenses.find(e => e.id === id);
+      if (e) monthlyReserveTotal -= e.amount;
+      reserveExpenses = reserveExpenses.filter(e => e.id !== id);
+      renderReserveList();
+    } else {
+      const e = expenses.find(e => e.id === id);
+      if (e) monthlyTotal -= e.amount;
+      expenses = expenses.filter(e => e.id !== id);
+      updateUI();
+    }
     setStatus('삭제됨 ✓');
   } catch(e) {
     setStatus('삭제 실패: ' + e.message, true);
@@ -531,6 +552,7 @@ async function addReserveExpense() {
   try {
     const row = await sbInsert({ name, amount, date: TODAY, time, type: 'reserve' });
     reserveExpenses.push({ id: row.id, name, amount, time });
+    monthlyReserveTotal += amount;
     nameEl.value = ''; amountEl.value = ''; nameEl.focus();
     setStatus('저장됨 ✓');
     renderReserveList();
