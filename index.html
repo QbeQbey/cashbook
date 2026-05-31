@@ -407,16 +407,15 @@ function updateSummary(remain, total) {
   const start = new Date('2026-05-30');
   const end = new Date('2026-06-30');
   const today = new Date(TODAY);
-  // 내일부터 남은 일수 (6/1~6/30 = 30일 등)
   const remainDays = Math.round((end - today) / 86400000);
-  // 경과 일수 (5/30=1일, 5/31=2일 ...)
   const passedDays = Math.round((today - start) / 86400000) + 1;
-  // 내일부터 하루 예산 = (전체월예산 - 이번달누적지출) / 남은일수
+  // 내일부터 실제 하루 예산
   const newDaily = remainDays > 0 ? Math.round((settings.monthly - monthlyTotal) / remainDays) : 0;
-  // 기준: 딱 맞게 썼을 때의 내일 하루 예산
-  const baseline = remainDays > 0 ? Math.round((settings.monthly - passedDays * settings.daily) / remainDays) : settings.daily;
-  // diff: 절약/초과로 인한 기준 대비 변화
-  const diff = newDaily - baseline;
+  // 기준: 지금까지 딱 맞게 썼을 때의 내일 하루 (절약/초과 없는 상태)
+  const idealRemain = settings.monthly - (passedDays * settings.daily);
+  const idealDaily = remainDays > 0 ? Math.round(idealRemain / remainDays) : settings.daily;
+  // diff: 양수=절약으로 여유생김, 음수=초과로 줄여야함
+  const diff = newDaily - idealDaily;
 
   // 첫번째 박스: 오늘 현황
   if (total === 0) {
