@@ -253,7 +253,7 @@ async function sbSelect(date, type, signal) {
 }
 async function sbSelectMonth(yearMonth, type) {
   // yearMonth: '2026-06' 형태
-  const url = SB_URL + '/rest/v1/expenses?date=like.' + yearMonth + '*&type=eq.' + type + '&order=created_at.asc';
+  const url = SB_URL + '/rest/v1/expenses?date=like.' + yearMonth + '*&type=eq.' + type + '&order=date.desc,created_at.desc';
   const res = await fetch(url, { headers: HEADERS });
   return res.json();
 }
@@ -486,9 +486,12 @@ async function loadExpenses() {
     ]);
     clearTimeout(timeout);
     if (Array.isArray(d1)) expenses = d1.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
-    if (Array.isArray(d2)) reserveExpenses = d2.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
+    // 예비비는 이번달 전체 내역으로 표시
+    if (Array.isArray(m2)) {
+      reserveExpenses = m2.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time, date: r.date }));
+      monthlyReserveTotal = m2.reduce((s, r) => s + r.amount, 0);
+    }
     if (Array.isArray(m1)) monthlyTotal = m1.reduce((s, r) => s + r.amount, 0);
-    if (Array.isArray(m2)) monthlyReserveTotal = m2.reduce((s, r) => s + r.amount, 0);
   } catch(e) {
     setStatus('불러오기 실패: ' + e.message, true);
   }
@@ -569,7 +572,7 @@ function renderReserveList() {
   document.getElementById('reserveListTotal').textContent = total > 0 ? fmt(total) : '';
   if (reserveExpenses.length === 0) { list.innerHTML = '<div class="empty">아직 사용내역이 없어요</div>'; return; }
   list.innerHTML = reserveExpenses.slice().reverse().map(e =>
-    '<div class="expense-item"><div class="item-left"><div class="item-dot" style="background:var(--orange)"></div><div><div class="item-name">' + e.name + '</div><div class="item-time">' + e.time + '</div></div></div><div class="item-right"><div class="item-amount">' + fmt(e.amount) + '</div><button class="del-btn" onclick="deleteExpense(' + e.id + ', true)">✕</button></div></div>'
+    '<div class="expense-item"><div class="item-left"><div class="item-dot" style="background:var(--orange)"></div><div><div class="item-name">' + e.name + '</div><div class="item-time">' + (e.date || TODAY) + ' ' + e.time + '</div></div></div><div class="item-right"><div class="item-amount">' + fmt(e.amount) + '</div><button class="del-btn" onclick="deleteExpense(' + e.id + ', true)">✕</button></div></div>'
   ).join('');
   updateReserveBar();
 }
