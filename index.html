@@ -46,6 +46,7 @@
     .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
     .metric-label { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
     .metric-value { font-size: 15px; font-weight: 600; }
+    .metric-value span.metric-total { font-size: 12px; font-weight: 400; color: var(--text-hint); }
     .donut-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1rem; }
     .donut-wrap { position: relative; width: 100px; height: 100px; flex-shrink: 0; }
     .donut-wrap canvas { width: 100px; height: 100px; }
@@ -155,8 +156,8 @@
 
   <div class="metrics">
     <div class="metric"><div class="metric-label">하루 예산</div><div class="metric-value" id="m-daily">-</div></div>
-    <div class="metric"><div class="metric-label">월 예산</div><div class="metric-value" id="m-monthly">-</div></div>
-    <div class="metric"><div class="metric-label">예비비</div><div class="metric-value" id="m-reserve">-</div></div>
+    <div class="metric"><div class="metric-label">월 예산</div><div class="metric-value" id="m-monthly">-<span class="metric-total" id="m-monthly-total"></span></div></div>
+    <div class="metric"><div class="metric-label">예비비</div><div class="metric-value" id="m-reserve">-<span class="metric-total" id="m-reserve-total"></span></div></div>
   </div>
 
   <div class="donut-card">
@@ -321,9 +322,23 @@ function saveSettings() {
 
 function updateMetrics() {
   document.getElementById('m-daily').textContent = (settings.daily / 10000) + '만원';
-  document.getElementById('m-monthly').textContent = (settings.monthly / 10000).toLocaleString('ko-KR') + '만원';
-  document.getElementById('m-reserve').textContent = (settings.reserve / 10000).toLocaleString('ko-KR') + '만원';
   document.getElementById('dailyBudgetVal').textContent = settings.daily.toLocaleString('ko-KR') + '원';
+  updateMetricRemain();
+}
+
+function updateMetricRemain() {
+  const remainMonthly = settings.monthly - monthlyTotal;
+  const remainReserve = settings.reserve - monthlyReserveTotal;
+  const toMan = n => (n / 10000).toLocaleString('ko-KR');
+
+  const mEl = document.getElementById('m-monthly');
+  const rEl = document.getElementById('m-reserve');
+
+  mEl.childNodes[0].textContent = toMan(remainMonthly) + '만원';
+  document.getElementById('m-monthly-total').textContent = '/' + toMan(settings.monthly) + '만원';
+
+  rEl.childNodes[0].textContent = toMan(remainReserve) + '만원';
+  document.getElementById('m-reserve-total').textContent = '/' + toMan(settings.reserve) + '만원';
 }
 
 const days = ['일','월','화','수','목','금','토'];
@@ -374,6 +389,7 @@ function updateUI() {
   }
   drawDonut(pct);
   updateSummary(remain, total);
+  updateMetricRemain();
   renderList();
 }
 
@@ -440,6 +456,7 @@ function updateSummary(remain, total) {
   }
 
   updateReserveBar();
+  updateMetricRemain();
 }
 
 function updateReserveBar() {
