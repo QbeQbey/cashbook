@@ -308,7 +308,8 @@ async function sbDelete(id) {
   await fetch(SB_URL + '/rest/v1/expenses?id=eq.' + id, { method: 'DELETE', headers: HEADERS });
 }
 
-const REAL_TODAY = new Date().toISOString().slice(0, 10);
+const _now = new Date();
+const REAL_TODAY = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0');
 const START_DATE = '2026-05-30';
 const PERIOD_END = '2026-06-30';
 let VIEWING_DATE = REAL_TODAY;
@@ -400,10 +401,15 @@ function updateDateLabel() {
   document.getElementById('todayBtn').style.display = isToday ? 'none' : 'inline';
 }
 
+function dateToStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
 function changeDate(delta) {
-  const d = new Date(TODAY + 'T00:00:00');
+  const p = TODAY.split('-');
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
   d.setDate(d.getDate() + delta);
-  const newDate = d.toISOString().slice(0, 10);
+  const newDate = dateToStr(d);
   if (newDate < START_DATE) return;
   if (newDate > REAL_TODAY) return;
   TODAY = newDate;
@@ -581,8 +587,8 @@ async function loadExpenses() {
     const [d1, d2, m1, m2] = await Promise.all([
       sbSelect(TODAY, 'daily', controller.signal),
       sbSelect(TODAY, 'reserve', controller.signal),
-      sbSelectRange(START_DATE, PERIOD_END, 'daily'),
-      sbSelectRange(START_DATE, PERIOD_END, 'reserve')
+      sbSelectRange(START_DATE, TODAY, 'daily'),
+      sbSelectRange(START_DATE, TODAY, 'reserve')
     ]);
     clearTimeout(timeout);
     if (Array.isArray(d1)) expenses = d1.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
