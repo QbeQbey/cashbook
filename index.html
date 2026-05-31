@@ -488,10 +488,11 @@ function updateSummary(remain, total) {
   const commentText = document.getElementById('commentText');
 
   const start = new Date('2026-05-30');
-  const end = new Date('2026-06-30');
   const today = new Date(TODAY);
-  const remainDays = Math.round((end - today) / 86400000);
   const passedDays = Math.round((today - start) / 86400000) + 1;
+  // 예산 총 일수 = monthly / daily (31일). 남은 일수 = 예산일수 - 경과일수
+  const budgetDays = Math.round(settings.monthly / settings.daily);
+  const remainDays = Math.max(0, budgetDays - passedDays);
   // 내일부터 실제 하루 예산
   const newDaily = remainDays > 0 ? Math.round((settings.monthly - monthlyTotal) / remainDays) : 0;
   // 기준: 지금까지 딱 맞게 썼을 때의 내일 하루 (절약/초과 없는 상태)
