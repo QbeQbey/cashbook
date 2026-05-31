@@ -30,6 +30,13 @@
     .header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; }
     .header-left h1 { font-size: 22px; font-weight: 600; }
     .header-left p { font-size: 13px; color: var(--text-sub); margin-top: 3px; }
+    .date-nav { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+    .date-nav-btn { background: none; border: 0.5px solid var(--border-md); border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; color: var(--text-sub); flex-shrink: 0; }
+    .date-nav-btn:hover:not(:disabled) { background: var(--surface); }
+    .date-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .date-nav-label { font-size: 13px; color: var(--text-sub); width: 150px; text-align: center; }
+    .date-nav-label.past { color: var(--orange); }
+    .date-today-btn { font-size: 11px; color: var(--blue); background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; flex-shrink: 0; }
     .settings-btn { background: none; border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 13px; color: var(--text-sub); cursor: pointer; font-family: inherit; }
     .settings-btn:hover { background: var(--surface); }
     .settings-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.5rem; display: none; }
@@ -122,7 +129,12 @@
   <div class="header">
     <div class="header-left">
       <h1>Cashbook</h1>
-      <p id="todayDate"></p>
+      <div class="date-nav">
+        <button class="date-nav-btn" id="prevDateBtn" onclick="changeDate(-1)">‹</button>
+        <span class="date-nav-label" id="todayDate"></span>
+        <button class="date-nav-btn" id="nextDateBtn" onclick="changeDate(1)" disabled>›</button>
+        <button class="date-today-btn" id="todayBtn" onclick="goToday()" style="display:none">오늘</button>
+      </div>
     </div>
     <button class="settings-btn" onclick="toggleSettings()">⚙ 예산 설정</button>
   </div>
@@ -267,12 +279,15 @@ async function sbDelete(id) {
   await fetch(SB_URL + '/rest/v1/expenses?id=eq.' + id, { method: 'DELETE', headers: HEADERS });
 }
 
-const TODAY = new Date().toISOString().slice(0, 10);
-const THIS_MONTH = TODAY.slice(0, 7); // '2026-06'
+const REAL_TODAY = new Date().toISOString().slice(0, 10);
+const START_DATE = '2026-05-30';
+let VIEWING_DATE = REAL_TODAY;
+let TODAY = REAL_TODAY;
+const THIS_MONTH = REAL_TODAY.slice(0, 7);
 let expenses = [];
 let reserveExpenses = [];
-let monthlyTotal = 0;      // 이번달 일반 지출 누계
-let monthlyReserveTotal = 0; // 이번달 예비비 누계
+let monthlyTotal = 0;
+let monthlyReserveTotal = 0;
 
 const DEFAULT_SETTINGS = { salary: 4400000, fixed: 2000000, monthly: 1240000, daily: 40000, reserve: 1160000 };
 let settings = { ...DEFAULT_SETTINGS };
@@ -342,8 +357,41 @@ function updateMetricRemain() {
 }
 
 const days = ['일','월','화','수','목','금','토'];
-const now = new Date();
-document.getElementById('todayDate').textContent = now.getFullYear() + '년 ' + (now.getMonth()+1) + '월 ' + now.getDate() + '일 (' + days[now.getDay()] + ')';
+
+function updateDateLabel() {
+  const d = new Date(TODAY + 'T00:00:00');
+  const isToday = TODAY === REAL_TODAY;
+  const isStart = TODAY === START_DATE;
+  const label = d.getFullYear() + '년 ' + (d.getMonth()+1) + '월 ' + d.getDate() + '일 (' + days[d.getDay()] + ')';
+  const el = document.getElementById('todayDate');
+  el.textContent = label;
+  el.className = isToday ? 'date-nav-label' : 'date-nav-label past';
+  document.getElementById('prevDateBtn').disabled = isStart;
+  document.getElementById('nextDateBtn').disabled = isToday;
+  document.getElementById('todayBtn').style.display = isToday ? 'none' : 'inline';
+}
+
+function changeDate(delta) {
+  const d = new Date(TODAY + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  const newDate = d.toISOString().slice(0, 10);
+  if (newDate < START_DATE) return;
+  if (newDate > REAL_TODAY) return;
+  TODAY = newDate;
+  VIEWING_DATE = newDate;
+  updateDateLabel();
+  expenses = [];
+  loadExpenses();
+}
+
+function goToday() {
+  TODAY = REAL_TODAY;
+  VIEWING_DATE = REAL_TODAY;
+  updateDateLabel();
+  expenses = [];
+  loadExpenses();
+}
+
 
 function fmt(n) { return Math.abs(n).toLocaleString('ko-KR') + '원'; }
 
@@ -605,6 +653,7 @@ document.getElementById('expenseAmount').addEventListener('keydown', e => { if (
 async function init() {
   loadSettings();
   updateMetrics();
+  updateDateLabel();
   updateUI();
   renderReserveList();
   loadExpenses();
