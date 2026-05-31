@@ -34,9 +34,27 @@
     .date-nav-btn { background: none; border: 0.5px solid var(--border-md); border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; color: var(--text-sub); flex-shrink: 0; }
     .date-nav-btn:hover:not(:disabled) { background: var(--surface); }
     .date-nav-btn:disabled { opacity: 0.3; cursor: default; }
-    .date-nav-label { font-size: 13px; color: var(--text-sub); width: 150px; text-align: center; }
+    .date-nav-label { font-size: 13px; color: var(--text-sub); width: 150px; text-align: center; cursor: pointer; border-radius: 6px; padding: 3px 6px; transition: background 0.15s; }
+    .date-nav-label:hover { background: var(--border); }
     .date-nav-label.past { color: var(--orange); }
     .date-today-btn { font-size: 11px; color: var(--blue); background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; flex-shrink: 0; }
+    /* Calendar popup */
+    .cal-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.3); }
+    .cal-overlay.open { display: flex; align-items: flex-start; justify-content: center; padding-top: 90px; }
+    .cal-popup { background: var(--surface); border: 0.5px solid var(--border-md); border-radius: var(--radius); padding: 1rem; width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .cal-month-label { font-size: 14px; font-weight: 600; }
+    .cal-nav-btn { background: none; border: 0.5px solid var(--border-md); border-radius: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: var(--text-sub); }
+    .cal-nav-btn:hover:not(:disabled) { background: var(--bg); }
+    .cal-nav-btn:disabled { opacity: 0.25; cursor: default; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .cal-dow { font-size: 11px; color: var(--text-hint); text-align: center; padding: 4px 0; }
+    .cal-day { font-size: 13px; text-align: center; padding: 6px 2px; border-radius: 6px; cursor: pointer; color: var(--text); }
+    .cal-day:hover:not(.cal-disabled):not(.cal-empty) { background: var(--bg); }
+    .cal-day.cal-today { font-weight: 600; color: var(--blue); }
+    .cal-day.cal-selected { background: var(--text); color: var(--bg); border-radius: 6px; }
+    .cal-day.cal-disabled { color: var(--text-hint); cursor: default; opacity: 0.4; }
+    .cal-day.cal-empty { cursor: default; }
     .settings-btn { background: none; border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 13px; color: var(--text-sub); cursor: pointer; font-family: inherit; }
     .settings-btn:hover { background: var(--surface); }
     .settings-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.5rem; display: none; }
@@ -131,7 +149,7 @@
       <h1>Cashbook</h1>
       <div class="date-nav">
         <button class="date-nav-btn" id="prevDateBtn" onclick="changeDate(-1)">‹</button>
-        <span class="date-nav-label" id="todayDate"></span>
+        <span class="date-nav-label" id="todayDate" onclick="openCal()"></span>
         <button class="date-nav-btn" id="nextDateBtn" onclick="changeDate(1)" disabled>›</button>
         <button class="date-today-btn" id="todayBtn" onclick="goToday()" style="display:none">오늘</button>
       </div>
@@ -247,6 +265,18 @@
   <div class="status" id="statusMsg"></div>
 </div>
 
+<!-- Calendar popup -->
+<div class="cal-overlay" id="calOverlay" onclick="closeCal(event)">
+  <div class="cal-popup" onclick="event.stopPropagation()">
+    <div class="cal-header">
+      <button class="cal-nav-btn" id="calPrevBtn" onclick="calChangeMonth(-1)">‹</button>
+      <span class="cal-month-label" id="calMonthLabel"></span>
+      <button class="cal-nav-btn" id="calNextBtn" onclick="calChangeMonth(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
 <script>
 // Supabase REST API 직접 호출 (라이브러리 없이)
 const SB_URL = 'https://stbbjqeyjmvwepciqxpp.supabase.co';
@@ -264,9 +294,8 @@ async function sbSelect(date, type, signal) {
   const res = await fetch(url, { headers: HEADERS, signal });
   return res.json();
 }
-async function sbSelectMonth(yearMonth, type) {
-  // yearMonth: '2026-06' 형태
-  const url = SB_URL + '/rest/v1/expenses?date=like.' + yearMonth + '*&type=eq.' + type + '&order=date.desc,created_at.desc';
+async function sbSelectRange(from, to, type) {
+  const url = SB_URL + '/rest/v1/expenses?date=gte.' + from + '&date=lte.' + to + '&type=eq.' + type + '&order=date.desc,created_at.desc';
   const res = await fetch(url, { headers: HEADERS });
   return res.json();
 }
@@ -281,9 +310,9 @@ async function sbDelete(id) {
 
 const REAL_TODAY = new Date().toISOString().slice(0, 10);
 const START_DATE = '2026-05-30';
+const PERIOD_END = '2026-06-30';
 let VIEWING_DATE = REAL_TODAY;
 let TODAY = REAL_TODAY;
-const THIS_MONTH = REAL_TODAY.slice(0, 7);
 let expenses = [];
 let reserveExpenses = [];
 let monthlyTotal = 0;
@@ -536,7 +565,8 @@ function updateReserveBar() {
 function renderList() {
   const list = document.getElementById('expenseList');
   const total = expenses.reduce((s, e) => s + e.amount, 0);
-  document.getElementById('listTitle').textContent = '오늘 지출 내역 (' + expenses.length + '건)';
+  const dayLabel = TODAY === REAL_TODAY ? '오늘' : TODAY.slice(5).replace('-', '/');
+  document.getElementById('listTitle').textContent = dayLabel + ' 지출 내역 (' + expenses.length + '건)';
   document.getElementById('listTotal').textContent = total > 0 ? fmt(total) : '';
   if (expenses.length === 0) { list.innerHTML = '<div class="empty">아직 지출 내역이 없어요</div>'; return; }
   list.innerHTML = expenses.slice().reverse().map(e =>
@@ -551,8 +581,8 @@ async function loadExpenses() {
     const [d1, d2, m1, m2] = await Promise.all([
       sbSelect(TODAY, 'daily', controller.signal),
       sbSelect(TODAY, 'reserve', controller.signal),
-      sbSelectMonth(THIS_MONTH, 'daily'),
-      sbSelectMonth(THIS_MONTH, 'reserve')
+      sbSelectRange(START_DATE, PERIOD_END, 'daily'),
+      sbSelectRange(START_DATE, PERIOD_END, 'reserve')
     ]);
     clearTimeout(timeout);
     if (Array.isArray(d1)) expenses = d1.map(r => ({ id: r.id, name: r.name, amount: r.amount, time: r.time }));
@@ -645,6 +675,74 @@ function renderReserveList() {
     '<div class="expense-item"><div class="item-left"><div class="item-dot" style="background:var(--orange)"></div><div><div class="item-name">' + e.name + '</div><div class="item-time">' + (e.date || TODAY) + ' ' + e.time + '</div></div></div><div class="item-right"><div class="item-amount">' + fmt(e.amount) + '</div><button class="del-btn" onclick="deleteExpense(' + e.id + ', true)">✕</button></div></div>'
   ).join('');
   updateReserveBar();
+}
+
+// ---- Calendar ----
+let calYear, calMonth;
+
+function openCal() {
+  const d = new Date(TODAY + 'T00:00:00');
+  calYear = d.getFullYear();
+  calMonth = d.getMonth();
+  renderCal();
+  document.getElementById('calOverlay').classList.add('open');
+}
+
+function closeCal(e) {
+  document.getElementById('calOverlay').classList.remove('open');
+}
+
+function calChangeMonth(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCal();
+}
+
+function renderCal() {
+  const startD = new Date(START_DATE + 'T00:00:00');
+  const endD = new Date(Math.min(new Date(PERIOD_END), new Date(REAL_TODAY)));
+  const label = calYear + '년 ' + (calMonth + 1) + '월';
+  document.getElementById('calMonthLabel').textContent = label;
+
+  const prevDate = new Date(calYear, calMonth - 1, 1);
+  const nextDate = new Date(calYear, calMonth + 1, 1);
+  document.getElementById('calPrevBtn').disabled =
+    prevDate < new Date(startD.getFullYear(), startD.getMonth(), 1);
+  document.getElementById('calNextBtn').disabled =
+    nextDate > new Date(endD.getFullYear(), endD.getMonth(), 1);
+
+  const dows = ['일','월','화','수','목','금','토'];
+  let html = dows.map(d => '<div class="cal-dow">' + d + '</div>').join('');
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day cal-empty"></div>';
+
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = calYear + '-' + String(calMonth + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const disabled = dateObj < startD || dateObj > endD;
+    const isSelected = dateStr === TODAY;
+    const isToday = dateStr === REAL_TODAY;
+    let cls = 'cal-day';
+    if (disabled) cls += ' cal-disabled';
+    else if (isSelected) cls += ' cal-selected';
+    else if (isToday) cls += ' cal-today';
+    const onclick = disabled ? '' : ' onclick="calSelectDate(\'' + dateStr + '\')"';
+    html += '<div class="' + cls + '"' + onclick + '>' + d + '</div>';
+  }
+
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function calSelectDate(dateStr) {
+  TODAY = dateStr;
+  VIEWING_DATE = dateStr;
+  updateDateLabel();
+  expenses = [];
+  loadExpenses();
+  closeCal();
 }
 
 document.getElementById('expenseName').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('expenseAmount').focus(); });
